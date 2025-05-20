@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guess the Number Game</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f8ff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            color: #333;
+        }
+        
+        .game-container {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            width: 350px;
+            text-align: center;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        
+        .settings {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #eaf2f8;
+            border-radius: 5px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        input {
+            padding: 8px;
+            margin-bottom: 10px;
+            width: 80px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
+        }
+        
+        .game-area {
+            display: none;
+            margin-top: 20px;
+        }
+        
+        #message {
+            margin: 15px 0;
+            padding: 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        
+        .low {
+            background-color: #f9e79f;
+            color: #7d6608;
+        }
+        
+        .high {
+            background-color: #f5b7b1;
+            color: #78281f;
+        }
+        
+        .correct {
+            background-color: #abebc6;
+            color: #1d8348;
+        }
+        
+        .error {
+            background-color: #fadbd8;
+            color: #c0392b;
+        }
+        
+        #attempts {
+            font-style: italic;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>Guess the Number</h1>
+        
+        <div class="settings">
+            <label for="min">Minimum Number:</label>
+            <input type="number" id="min" value="1" min="1">
+            
+            <label for="max">Maximum Number:</label>
+            <input type="number" id="max" value="100" min="2">
+            
+            <button id="start-btn">Start Game</button>
+        </div>
+        
+        <div class="game-area" id="game-area">
+            <p>I'm thinking of a number between <span id="range-min">1</span> and <span id="range-max">100</span>.</p>
+            
+            <input type="number" id="guess-input" placeholder="Enter your guess">
+            <button id="guess-btn">Submit Guess</button>
+            
+            <div id="message"></div>
+            <div id="attempts">Attempts: 0</div>
+        </div>
+    </div>
+
+    <script>
+        const startBtn = document.getElementById('start-btn');
+        const guessBtn = document.getElementById('guess-btn');
+        const gameArea = document.getElementById('game-area');
+        const minInput = document.getElementById('min');
+        const maxInput = document.getElementById('max');
+        const guessInput = document.getElementById('guess-input');
+        const messageDiv = document.getElementById('message');
+        const attemptsDiv = document.getElementById('attempts');
+        const rangeMin = document.getElementById('range-min');
+        const rangeMax = document.getElementById('range-max');
+        
+        // Generate a simple user ID (in a real app, use proper authentication)
+        const userId = 'user_' + Math.random().toString(36).substr(2, 9);
+        
+        startBtn.addEventListener('click', startGame);
+        guessBtn.addEventListener('click', makeGuess);
+        guessInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                makeGuess();
+            }
+        });
+        
+        function startGame() {
+            const min = parseInt(minInput.value);
+            const max = parseInt(maxInput.value);
+            
+            if (min >= max) {
+                alert('Maximum number must be greater than minimum number');
+                return;
+            }
+            
+            fetch('/start_game', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    user_id: userId,
+                    min: min,
+                    max: max
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                gameArea.style.display = 'block';
+                rangeMin.textContent = min;
+                rangeMax.textContent = max;
+                messageDiv.textContent = data.message;
+                messageDiv.className = '';
+                attemptsDiv.textContent = 'Attempts: 0';
+                guessInput.value = '';
+                guessInput.focus();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+        
+        function makeGuess() {
+            const guess = parseInt(guessInput.value);
+            
+            if (isNaN(guess)) {
+                messageDiv.textContent = 'Please enter a valid number';
+                messageDiv.className = 'error';
+                return;
+            }
+            
+            fetch('/guess', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    user_id: userId,
+                    guess: guess
+                }),
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.error) {
+                    messageDiv.textContent = data.error;
+                    messageDiv.className = 'error';
+                    return;
+                }
+                
+                attemptsDiv.textContent = `Attempts: ${data.attempts}`;
+                
+                if (data.result === 'correct') {
+                    messageDiv.textContent = `Congratulations! You guessed the number ${data.secret_number} in ${data.attempts} attempts!`;
+                    messageDiv.className = 'correct';
+                    guessInput.disabled = true;
+                    guessBtn.disabled = true;
+                } else if (data.result === 'low') {
+                    messageDiv.textContent = data.hint;
+                    messageDiv.className = 'low';
+                } else if (data.result === 'high') {
+                    messageDiv.textContent = data.hint;
+                    messageDiv.className = 'high';
+                }
+                
+                guessInput.value = '';
+                guessInput.focus();
+            })
+            .catch(error => {
+                messageDiv.textContent = error.error || 'An error occurred';
+                messageDiv.className = 'error';
+                console.error('Error:', error);
+            });
+        }
+    </script>
+</body>
+</html>
